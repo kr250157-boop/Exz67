@@ -1,0 +1,426 @@
+-- [[ EXZ Hub - Ultimate Script with Custom Icon ]] --
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local Player = Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
+
+-- ป้องกันการรันซ้ำ
+if PlayerGui:FindFirstChild("EXZHubGui") then
+    PlayerGui.EXZHubGui:Destroy()
+end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "EXZHubGui"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+pcall(function()
+    ScreenGui.Parent = CoreGui
+end)
+if not ScreenGui.Parent then
+    ScreenGui.Parent = PlayerGui
+end
+
+-- ==========================================
+-- 1. สร้างตราสคริปต์ (Floating Icon) รูปตามที่คุณต้องการ
+-- ==========================================
+local IconBtn = Instance.new("ImageButton")
+IconBtn.Name = "EXZIcon"
+IconBtn.Size = UDim2.new(0, 65, 0, 65)
+IconBtn.Position = UDim2.new(0, 30, 0, 200)
+IconBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+IconBtn.BackgroundTransparency = 1
+-- **คำแนะนำ:** หากคุณอัปโหลดรูปภาพนี้ลง Roblox แล้ว ให้นำ Asset ID มาใส่แทนที่เลขด้านล่างนี้ (เช่น "rbxassetid://1234567890")
+IconBtn.Image = "rbxassetid://0" -- ใส่ Decal ID ของรูปภาพที่คุณอัปโหลดที่นี่
+IconBtn.Parent = ScreenGui
+
+-- เพิ่มแสงเงาหรือกรอบให้ตราดูโดดเด่น
+local IconStroke = Instance.new("UIStroke")
+IconStroke.Color = Color3.fromRGB(0, 160, 255)
+IconStroke.Thickness = 2
+IconStroke.Parent = IconBtn
+
+local UICornerIcon = Instance.new("UICorner")
+UICornerIcon.CornerRadius = UDim.new(1, 0)
+UICornerIcon.Parent = IconBtn
+
+-- ทำให้ตราสคริปต์สามารถลากย้ายไปไหนมาไหนก็ได้รอบหน้าจอ
+local dragging, dragInput, dragStart, startPos
+IconBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = IconBtn.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        IconBtn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+-- ==========================================
+-- 2. หน้าจอโหลด (Loading Screen)
+-- ==========================================
+local LoadFrame = Instance.new("Frame")
+LoadFrame.Size = UDim2.new(0, 320, 0, 180)
+LoadFrame.Position = UDim2.new(0.5, -160, 0.5, -90)
+LoadFrame.BackgroundColor3 = Color3.fromRGB(15, 20, 35)
+LoadFrame.BorderSizePixel = 0
+LoadFrame.Parent = ScreenGui
+
+local LoadCorner = Instance.new("UICorner")
+LoadCorner.CornerRadius = UDim.new(0, 12)
+LoadCorner.Parent = LoadFrame
+
+local LoadStroke = Instance.new("UIStroke")
+LoadStroke.Color = Color3.fromRGB(0, 160, 255)
+LoadStroke.Thickness = 2
+LoadStroke.Parent = LoadFrame
+
+local TitleLoad = Instance.new("TextLabel")
+TitleLoad.Size = UDim2.new(1, 0, 0, 40)
+TitleLoad.Position = UDim2.new(0, 0, 0, 15)
+TitleLoad.BackgroundTransparency = 1
+TitleLoad.Text = "EXZ HUB LOADING"
+TitleLoad.TextColor3 = Color3.fromRGB(200, 230, 255)
+TitleLoad.TextSize = 20
+TitleLoad.Font = Enum.Font.GothamBold
+TitleLoad.Parent = LoadFrame
+
+local BarBg = Instance.new("Frame")
+BarBg.Size = UDim2.new(0.85, 0, 0, 12)
+BarBg.Position = UDim2.new(0.075, 0, 0, 75)
+BarBg.BackgroundColor3 = Color3.fromRGB(30, 40, 60)
+BarBg.BorderSizePixel = 0
+BarBg.Parent = LoadFrame
+
+local BarBgCorner = Instance.new("UICorner")
+BarBgCorner.CornerRadius = UDim.new(1, 0)
+BarBgCorner.Parent = BarBg
+
+local BarFill = Instance.new("Frame")
+BarFill.Size = UDim2.new(0, 0, 1, 0)
+BarFill.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+BarFill.BorderSizePixel = 0
+BarFill.Parent = BarBg
+
+local BarFillCorner = Instance.new("UICorner")
+BarFillCorner.CornerRadius = UDim.new(1, 0)
+BarFillCorner.Parent = BarFill
+
+local PercentLabel = Instance.new("TextLabel")
+PercentLabel.Size = UDim2.new(1, 0, 0, 30)
+PercentLabel.Position = UDim2.new(0, 0, 0, 105)
+PercentLabel.BackgroundTransparency = 1
+PercentLabel.Text = "กำลังโหลดระบบ... 0%"
+PercentLabel.TextColor3 = Color3.fromRGB(150, 180, 210)
+PercentLabel.TextSize = 14
+PercentLabel.Font = Enum.Font.Gotham
+PercentLabel.Parent = LoadFrame
+
+-- ==========================================
+-- 3. หน้าเมนูหลัก (Main Menu)
+-- ==========================================
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 420, 0, 320)
+MainFrame.Position = UDim2.new(0.5, -210, 0.5, -160)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 20, 35)
+MainFrame.BorderSizePixel = 0
+MainFrame.Visible = false
+MainFrame.Parent = ScreenGui
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 12)
+MainCorner.Parent = MainFrame
+
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Color = Color3.fromRGB(0, 160, 255)
+MainStroke.Thickness = 2
+MainStroke.Parent = MainFrame
+
+-- แถบบน (TopBar) สำหรับย้ายหน้าต่างเมนู
+local TopBar = Instance.new("Frame")
+TopBar.Size = UDim2.new(1, 0, 0, 45)
+TopBar.BackgroundColor3 = Color3.fromRGB(20, 30, 50)
+TopBar.BorderSizePixel = 0
+TopBar.Parent = MainFrame
+
+local TopBarCorner = Instance.new("UICorner")
+TopBarCorner.CornerRadius = UDim.new(0, 12)
+TopBarCorner.Parent = TopBar
+
+local FixCorner = Instance.new("Frame")
+FixCorner.Size = UDim2.new(1, 0, 0, 10)
+FixCorner.Position = UDim2.new(0, 0, 1, -10)
+FixCorner.BackgroundColor3 = Color3.fromRGB(20, 30, 50)
+FixCorner.BorderSizePixel = 0
+FixCorner.Parent = TopBar
+
+local HubTitle = Instance.new("TextLabel")
+HubTitle.Size = UDim2.new(0, 200, 1, 0)
+HubTitle.Position = UDim2.new(0, 15, 0, 0)
+HubTitle.BackgroundTransparency = 1
+HubTitle.Text = "EXZ HUB V1.0"
+HubTitle.TextColor3 = Color3.fromRGB(0, 190, 255)
+HubTitle.TextSize = 16
+HubTitle.Font = Enum.Font.GothamBold
+HubTitle.TextXAlignment = Enum.TextXAlignment.Left
+HubTitle.Parent = TopBar
+
+-- ปุ่มควบคุมหน้าต่าง (Minimize, Maximize, Close)
+local BtnHolder = Instance.new("Frame")
+BtnHolder.Size = UDim2.new(0, 100, 1, 0)
+BtnHolder.Position = UDim2.new(1, -105, 0, 0)
+BtnHolder.BackgroundTransparency = 1
+BtnHolder.Parent = TopBar
+
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.FillDirection = Enum.FillDirection.Horizontal
+UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+UIListLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+UIListLayout.Padding = UDim.new(0, 8)
+UIListLayout.Parent = BtnHolder
+
+local function createControlBtn(text)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(0, 25, 0, 25)
+    b.BackgroundColor3 = Color3.fromRGB(35, 45, 70)
+    b.Text = text
+    b.TextColor3 = Color3.fromRGB(255, 255, 255)
+    b.TextSize = 12
+    b.Font = Enum.Font.GothamBold
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 6)
+    c.Parent = b
+    b.Parent = BtnHolder
+    return b
+end
+
+local MinBtn = createControlBtn("-")
+local MaxBtn = createControlBtn("+")
+local CloseBtn = createControlBtn("X")
+
+-- ระบบลากย้ายหน้าต่างหลัก
+local mainDragging, mainDragInput, mainDragStart, mainStartPos
+TopBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        mainDragging = true
+        mainDragStart = input.Position
+        mainStartPos = MainFrame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                mainDragging = false
+            end
+        end)
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if mainDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - mainDragStart
+        MainFrame.Position = UDim2.new(mainStartPos.X.Scale, mainStartPos.X.Offset + delta.X, mainStartPos.Y.Scale, mainStartPos.Y.Offset + delta.Y)
+    end
+end)
+
+-- รายการปุ่มฟังก์ชันภายในเมนู
+local ContentScroll = Instance.new("ScrollingFrame")
+ContentScroll.Size = UDim2.new(1, -20, 1, -60)
+ContentScroll.Position = UDim2.new(0, 10, 0, 50)
+ContentScroll.BackgroundTransparency = 1
+ContentScroll.CanvasSize = UDim2.new(0, 0, 0, 320)
+ContentScroll.ScrollBarThickness = 4
+ContentScroll.Parent = MainFrame
+
+local ContentLayout = Instance.new("UIListLayout")
+ContentLayout.FillDirection = Enum.FillDirection.Vertical
+ContentLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+ContentLayout.Padding = UDim.new(0, 10)
+ContentLayout.Parent = ContentScroll
+
+local function createFeatureToggle(name, callback)
+    local toggleBtn = Instance.new("TextButton")
+    toggleBtn.Size = UDim2.new(1, -10, 0, 45)
+    toggleBtn.BackgroundColor3 = Color3.fromRGB(25, 35, 55)
+    toggleBtn.Text = "  " .. name .. " [ OFF ]"
+    toggleBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+    toggleBtn.TextSize = 14
+    toggleBtn.Font = Enum.Font.GothamSemibold
+    toggleBtn.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 8)
+    c.Parent = toggleBtn
+    
+    local active = false
+    toggleBtn.MouseButton1Click:Connect(function()
+        active = not active
+        if active then
+            toggleBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
+            toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            toggleBtn.Text = "  " .. name .. " [ ON ]"
+        else
+            toggleBtn.BackgroundColor3 = Color3.fromRGB(25, 35, 55)
+            toggleBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+            toggleBtn.Text = "  " .. name .. " [ OFF ]"
+        end
+        callback(active)
+    end)
+    
+    toggleBtn.Parent = ContentScroll
+end
+
+-- ==========================================
+-- 4. ระบบการทำงานของฟังก์ชัน (บิน, อมตะ, หายตัว, วิ่งไว, ทะลุกำแพง)
+-- ==========================================
+
+-- วิ่งไว
+createFeatureToggle("วิ่งไว (Speed Boost)", function(state)
+    local char = Player.Character
+    if char and char:FindFirstChild("Humanoid") then
+        char.Humanoid.WalkSpeed = state and 100 or 16
+    end
+end)
+
+-- อมตะ
+createFeatureToggle("อมตะ (God Mode)", function(state)
+    local char = Player.Character
+    if char and char:FindFirstChild("Humanoid") then
+        char.Humanoid.MaxHealth = state and math.huge or 100
+        char.Humanoid.Health = char.Humanoid.MaxHealth
+    end
+end)
+
+-- เดินทะลุกำแพง
+local noclipConnection
+createFeatureToggle("เดินทะลุกำแพง (Noclip)", function(state)
+    if state then
+        noclipConnection = RunService.Stepped:Connect(function()
+            local char = Player.Character
+            if char then
+                for _, part in pairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end)
+    else
+        if noclipConnection then noclipConnection:Disconnect() end
+    end
+end)
+
+-- หายตัว
+createFeatureToggle("หายตัว (Invisibility)", function(state)
+    local char = Player.Character
+    if char then
+        for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                part.Transparency = state and 1 or 0
+            elseif part:IsA("Decal") then
+                part.Transparency = state and 1 or 0
+            end
+        end
+    end
+end)
+
+-- บิน
+local flying = false
+local flyConnection
+createFeatureToggle("บิน (Fly)", function(state)
+    flying = state
+    local char = Player.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    local root = char.HumanoidRootPart
+    local camera = workspace.CurrentCamera
+    
+    if flying then
+        local bv = Instance.new("BodyVelocity")
+        bv.Name = "EXZFlyVelocity"
+        bv.Parent = root
+        bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        bv.Velocity = Vector3.new(0, 0, 0)
+        
+        local bg = Instance.new("BodyGyro")
+        bg.Name = "EXZFlyGyro"
+        bg.Parent = root
+        bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+        
+        flyConnection = RunService.RenderStepped:Connect(function()
+            if not flying then return end
+            bg.CFrame = camera.CFrame
+            local moveDir = Vector3.new()
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + camera.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - camera.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - camera.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + camera.CFrame.RightVector end
+            bv.Velocity = moveDir * 50
+        end)
+    else
+        if root:FindFirstChild("EXZFlyVelocity") then root.EXZFlyVelocity:Destroy() end
+        if root:FindFirstChild("EXZFlyGyro") then root.EXZFlyGyro:Destroy() end
+        if flyConnection then flyConnection:Disconnect() end
+    end
+end)
+
+-- ==========================================
+-- 5. ควบคุมการแสดงผล (Loading, Minimize, Maximize)
+-- ==========================================
+
+task.spawn(function()
+    for i = 1, 100 do
+        BarFill.Size = UDim2.new(i / 100, 0, 1, 0)
+        PercentLabel.Text = "กำลังโหลดระบบ... " .. i .. "%"
+        task.wait(0.02)
+    end
+    LoadFrame.Visible = false
+    MainFrame.Visible = true
+end)
+
+-- กดไอคอนเพื่อเปิด/ปิดเมนู
+IconBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+end)
+
+-- ย่อหน้าต่าง (-)
+local isMinimized = false
+MinBtn.MouseButton1Click:Connect(function()
+    isMinimized = not isMinimized
+    ContentScroll.Visible = not isMinimized
+    local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    local goal = isMinimized and UDim2.new(0, 420, 0, 45) or UDim2.new(0, 420, 0, 320)
+    TweenService:Create(MainFrame, tweenInfo, goal):Play()
+end)
+
+-- ขยายเต็มจอ (+)
+local isMaximized = false
+local normalSize = UDim2.new(0, 420, 0, 320)
+local normalPos = UDim2.new(0.5, -210, 0.5, -160)
+
+MaxBtn.MouseButton1Click:Connect(function()
+    isMaximized = not isMaximized
+    local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    if isMaximized then
+        normalSize = MainFrame.Size
+        normalPos = MainFrame.Position
+        TweenService:Create(MainFrame, tweenInfo, {Size = UDim2.new(0.9, 0, 0.9, 0), Position = UDim2.new(0.05, 0, 0.05, 0)}):Play()
+    else
+        TweenService:Create(MainFrame, tweenInfo, {Size = normalSize, Position = normalPos}):Play()
+    end
+end)
+
+-- ปิดสคริปต์ (X)
+CloseBtn.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
